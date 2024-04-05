@@ -13,7 +13,7 @@ mod MockAccount {
     #[constructor]
     fn constructor(ref self: ContractState) {}
 
-    #[external(v0)]
+    #[abi(embed_v0)]
     impl ERC20Impl of IAccount<ContractState> {
         fn name(self: @ContractState) -> felt252 {
             'mock'

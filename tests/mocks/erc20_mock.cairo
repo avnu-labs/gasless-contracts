@@ -2,7 +2,6 @@ use starknet::ContractAddress;
 
 #[starknet::interface]
 trait IERC20<TStorage> {
-    fn name(self: @TStorage) -> felt252;
     fn approve(ref self: TStorage, spender: ContractAddress, amount: u256);
     fn transfer(ref self: TStorage, to: ContractAddress, amount: u256);
     fn transferFrom(ref self: TStorage, from: ContractAddress, to: ContractAddress, amount: u256);
@@ -13,11 +12,11 @@ trait IERC20<TStorage> {
 
 
 #[starknet::contract]
-mod MockERC20 {
-    use integer::BoundedInt;
-    use super::IERC20;
+mod ERC20Mock {
+    use core::integer::BoundedInt;
     use starknet::ContractAddress;
     use starknet::get_caller_address;
+    use super::IERC20;
 
     #[storage]
     struct Storage {
@@ -43,12 +42,8 @@ mod MockERC20 {
         self._mint(recipient, initial_supply);
     }
 
-    #[external(v0)]
+    #[abi(embed_v0)]
     impl ERC20Impl of IERC20<ContractState> {
-        fn name(self: @ContractState) -> felt252 {
-            'mock'
-        }
-
         fn balanceOf(self: @ContractState, account: ContractAddress) -> u256 {
             self.ERC20_balances.read(account)
         }
@@ -59,9 +54,7 @@ mod MockERC20 {
             self.emit(Transfer { to, amount });
         }
 
-        fn transferFrom(
-            ref self: ContractState, from: ContractAddress, to: ContractAddress, amount: u256
-        ) {
+        fn transferFrom(ref self: ContractState, from: ContractAddress, to: ContractAddress, amount: u256) {
             let caller = get_caller_address();
             self._spend_allowance(from, caller, amount);
             self._transfer(from, to, amount);
@@ -82,19 +75,12 @@ mod MockERC20 {
 
     #[generate_trait]
     impl InternalImpl of InternalTrait {
-        fn _transfer(
-            ref self: ContractState,
-            sender: ContractAddress,
-            recipient: ContractAddress,
-            amount: u256
-        ) {
+        fn _transfer(ref self: ContractState, sender: ContractAddress, recipient: ContractAddress, amount: u256) {
             self.ERC20_balances.write(sender, self.ERC20_balances.read(sender) - amount);
             self.ERC20_balances.write(recipient, self.ERC20_balances.read(recipient) + amount);
         }
 
-        fn _approve(
-            ref self: ContractState, owner: ContractAddress, spender: ContractAddress, amount: u256
-        ) {
+        fn _approve(ref self: ContractState, owner: ContractAddress, spender: ContractAddress, amount: u256) {
             self.ERC20_allowances.write((owner, spender), amount);
         }
 
@@ -108,9 +94,7 @@ mod MockERC20 {
             self.ERC20_balances.write(account, self.ERC20_balances.read(account) - amount);
         }
 
-        fn _spend_allowance(
-            ref self: ContractState, owner: ContractAddress, spender: ContractAddress, amount: u256
-        ) {
+        fn _spend_allowance(ref self: ContractState, owner: ContractAddress, spender: ContractAddress, amount: u256) {
             let current_allowance = self.ERC20_allowances.read((owner, spender));
             if current_allowance != BoundedInt::max() {
                 self._approve(owner, spender, current_allowance - amount);
