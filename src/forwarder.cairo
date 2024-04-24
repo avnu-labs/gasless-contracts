@@ -12,6 +12,7 @@ trait IForwarder<TContractState> {
         gas_token_address: ContractAddress,
         gas_amount: u256,
     ) -> bool;
+    fn execute_no_fee(ref self: TContractState, account_address: ContractAddress, entrypoint: felt252, calldata: Array<felt252>) -> bool;
 }
 
 #[starknet::contract]
@@ -99,6 +100,19 @@ mod Forwarder {
             gas_token.transfer(gas_fees_recipient, gas_amount);
             let gas_token_balance = gas_token.balanceOf(contract_address);
             gas_token.transfer(account_address, gas_token_balance);
+
+            true
+        }
+
+        fn execute_no_fee(
+            ref self: ContractState, account_address: ContractAddress, entrypoint: felt252, calldata: Array<felt252>,
+        ) -> bool {
+            // Check if caller is whitelisted
+            let caller = get_caller_address();
+            assert(self.whitelist.is_whitelisted(caller), 'Caller is not whitelisted');
+
+            // Execute the call
+            call_contract_syscall(account_address, entrypoint, calldata.span()).unwrap_syscall();
 
             true
         }
