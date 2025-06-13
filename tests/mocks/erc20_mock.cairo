@@ -1,7 +1,7 @@
 use starknet::ContractAddress;
 
 #[starknet::interface]
-trait IERC20<TStorage> {
+pub trait IERC20<TStorage> {
     fn approve(ref self: TStorage, spender: ContractAddress, amount: u256);
     fn transfer(ref self: TStorage, to: ContractAddress, amount: u256);
     fn transferFrom(ref self: TStorage, from: ContractAddress, to: ContractAddress, amount: u256);
@@ -12,10 +12,10 @@ trait IERC20<TStorage> {
 
 
 #[starknet::contract]
-mod ERC20Mock {
+pub mod ERC20Mock {
     use core::integer::BoundedInt;
-    use starknet::ContractAddress;
-    use starknet::get_caller_address;
+    use starknet::storage::{StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess, StoragePointerWriteAccess};
+    use starknet::{ContractAddress, get_caller_address};
     use super::IERC20;
 
     #[storage]
@@ -38,7 +38,7 @@ mod ERC20Mock {
     }
 
     #[constructor]
-    fn constructor(ref self: ContractState, recipient: ContractAddress, initial_supply: u256,) {
+    fn constructor(ref self: ContractState, recipient: ContractAddress, initial_supply: u256) {
         self._mint(recipient, initial_supply);
     }
 
