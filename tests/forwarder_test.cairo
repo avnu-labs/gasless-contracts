@@ -151,7 +151,7 @@ mod ExecuteNoFee {
     }
 }
 
-mod ExecuteSponsoredTx {
+mod ExecuteSponsored {
     use super::{
         IForwarderDispatcherTrait, IOwnableDispatcherTrait, IWhitelistDispatcherTrait, contract_address_const, deploy_forwarder,
         deploy_mock_account, set_contract_address,
@@ -163,7 +163,7 @@ mod ExecuteSponsoredTx {
         // Given
         let (forwarder, ownable, whitelist) = deploy_forwarder();
         let caller = contract_address_const::<0x999>();
-        let sponsor_id: felt252 = 'SPONSOR_ID';
+        let sponsor_metadata: Array<felt252> = array!['SPONSOR_ID'];
         set_contract_address(ownable.get_owner());
         whitelist.set_whitelisted_address(caller, true);
         let account = deploy_mock_account();
@@ -173,7 +173,7 @@ mod ExecuteSponsoredTx {
         set_contract_address(caller);
 
         // When
-        let result = forwarder.execute_sponsored_tx(account_address, entrypoint, calldata, sponsor_id);
+        let result = forwarder.execute_sponsored(account_address, entrypoint, calldata, sponsor_metadata);
 
         // Then
         assert(result == true, 'invalid result');
@@ -185,13 +185,13 @@ mod ExecuteSponsoredTx {
     fn should_fail_when_caller_is_not_whitelisted() {
         // Given
         let (forwarder, _, _) = deploy_forwarder();
-        let sponsor_id: felt252 = 'SPONSOR_ID';
+        let sponsor_metadata: Array<felt252> = array!['SPONSOR_ID'];
         let account_address = contract_address_const::<0x1>();
         let entrypoint: felt252 = 0x0;
         let calldata: Array<felt252> = array![0x1, 0x2];
         set_contract_address(contract_address_const::<0x1234>());
 
         // When & Then
-        forwarder.execute_sponsored_tx(account_address, entrypoint, calldata, sponsor_id);
+        forwarder.execute_sponsored(account_address, entrypoint, calldata, sponsor_metadata);
     }
 }

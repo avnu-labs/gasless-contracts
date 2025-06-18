@@ -13,8 +13,12 @@ pub trait IForwarder<TContractState> {
         gas_amount: u256,
     ) -> bool;
     fn execute_no_fee(ref self: TContractState, account_address: ContractAddress, entrypoint: felt252, calldata: Array<felt252>) -> bool;
-    fn execute_sponsored_tx(
-        ref self: TContractState, account_address: ContractAddress, entrypoint: felt252, calldata: Array<felt252>, sponsor_id: felt252,
+    fn execute_sponsored(
+        ref self: TContractState,
+        account_address: ContractAddress,
+        entrypoint: felt252,
+        calldata: Array<felt252>,
+        sponsor_metadata: Array<felt252>,
     ) -> bool;
 }
 
@@ -69,7 +73,7 @@ pub mod Forwarder {
     #[derive(Drop, starknet::Event, PartialEq)]
     pub struct SponsoredTransaction {
         pub user_address: ContractAddress,
-        pub sponsor_id: felt252,
+        pub sponsor_metadata: Array<felt252>,
     }
 
     #[constructor]
@@ -129,8 +133,12 @@ pub mod Forwarder {
             true
         }
 
-        fn execute_sponsored_tx(
-            ref self: ContractState, account_address: ContractAddress, entrypoint: felt252, calldata: Array<felt252>, sponsor_id: felt252,
+        fn execute_sponsored(
+            ref self: ContractState,
+            account_address: ContractAddress,
+            entrypoint: felt252,
+            calldata: Array<felt252>,
+            sponsor_metadata: Array<felt252>,
         ) -> bool {
             // Check if caller is whitelisted
             let caller = get_caller_address();
@@ -140,7 +148,7 @@ pub mod Forwarder {
             call_contract_syscall(account_address, entrypoint, calldata.span()).unwrap_syscall();
 
             // Emit event
-            self.emit(SponsoredTransaction { user_address: account_address, sponsor_id });
+            self.emit(SponsoredTransaction { user_address: account_address, sponsor_metadata });
             true
         }
     }
