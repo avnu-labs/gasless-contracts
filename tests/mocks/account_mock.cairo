@@ -1,11 +1,11 @@
 #[starknet::interface]
-trait IAccount<TStorage> {
+pub trait IAccount<TStorage> {
     fn name(self: @TStorage) -> felt252;
 }
 
 
 #[starknet::contract]
-mod MockAccount {
+pub mod MockAccount {
     use super::IAccount;
     #[storage]
     struct Storage {}

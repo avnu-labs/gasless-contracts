@@ -1,7 +1,7 @@
 use starknet::ContractAddress;
 
 #[starknet::interface]
-trait IForwarder<TContractState> {
+pub trait IForwarder<TContractState> {
     fn get_gas_fees_recipient(self: @TContractState) -> ContractAddress;
     fn set_gas_fees_recipient(ref self: TContractState, gas_fees_recipient: ContractAddress) -> bool;
     fn execute(
@@ -13,16 +13,25 @@ trait IForwarder<TContractState> {
         gas_amount: u256,
     ) -> bool;
     fn execute_no_fee(ref self: TContractState, account_address: ContractAddress, entrypoint: felt252, calldata: Array<felt252>) -> bool;
+    fn execute_sponsored(
+        ref self: TContractState,
+        account_address: ContractAddress,
+        entrypoint: felt252,
+        calldata: Array<felt252>,
+        sponsor_metadata: Array<felt252>,
+    ) -> bool;
 }
 
 #[starknet::contract]
-mod Forwarder {
-    use avnu_lib::components::ownable::OwnableComponent::OwnableInternalImpl;
+pub mod Forwarder {
     use avnu_lib::components::ownable::OwnableComponent;
+    use avnu_lib::components::ownable::OwnableComponent::OwnableInternalImpl;
     use avnu_lib::components::upgradable::UpgradableComponent;
     use avnu_lib::components::whitelist::WhitelistComponent;
     use avnu_lib::interfaces::erc20::{IERC20Dispatcher, IERC20DispatcherTrait};
-    use starknet::{SyscallResultTrait, call_contract_syscall, ContractAddress, get_caller_address, get_contract_address};
+    use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
+    use starknet::syscalls::call_contract_syscall;
+    use starknet::{ContractAddress, SyscallResultTrait, get_caller_address, get_contract_address};
     use super::IForwarder;
 
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
@@ -58,6 +67,13 @@ mod Forwarder {
         UpgradableEvent: UpgradableComponent::Event,
         #[flat]
         WhitelistEvent: WhitelistComponent::Event,
+        SponsoredTransaction: SponsoredTransaction,
+    }
+
+    #[derive(Drop, starknet::Event, PartialEq)]
+    pub struct SponsoredTransaction {
+        pub user_address: ContractAddress,
+        pub sponsor_metadata: Array<felt252>,
     }
 
     #[constructor]
@@ -114,6 +130,25 @@ mod Forwarder {
             // Execute the call
             call_contract_syscall(account_address, entrypoint, calldata.span()).unwrap_syscall();
 
+            true
+        }
+
+        fn execute_sponsored(
+            ref self: ContractState,
+            account_address: ContractAddress,
+            entrypoint: felt252,
+            calldata: Array<felt252>,
+            sponsor_metadata: Array<felt252>,
+        ) -> bool {
+            // Check if caller is whitelisted
+            let caller = get_caller_address();
+            assert(self.whitelist.is_whitelisted(caller), 'Caller is not whitelisted');
+
+            // Execute the call
+            call_contract_syscall(account_address, entrypoint, calldata.span()).unwrap_syscall();
+
+            // Emit event
+            self.emit(SponsoredTransaction { user_address: account_address, sponsor_metadata });
             true
         }
     }

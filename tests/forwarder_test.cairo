@@ -1,12 +1,12 @@
-use avnu::forwarder::{Forwarder, IForwarderDispatcher, IForwarderDispatcherTrait};
+use avnu::forwarder::IForwarderDispatcherTrait;
 use avnu_lib::components::ownable::IOwnableDispatcherTrait;
 use avnu_lib::components::whitelist::IWhitelistDispatcherTrait;
+use starknet::contract_address_const;
 use starknet::testing::set_contract_address;
-use starknet::{ContractAddress, contract_address_const, class_hash_const};
-use super::helper::{deploy_forwarder, deploy_mock_token, deploy_mock_account};
+use super::helper::{deploy_forwarder, deploy_mock_account, deploy_mock_token};
 
 mod GetGasFessRecipient {
-    use super::{deploy_forwarder, IForwarderDispatcherTrait, contract_address_const};
+    use super::{IForwarderDispatcherTrait, contract_address_const, deploy_forwarder};
 
     #[test]
     #[available_gas(2000000)]
@@ -24,9 +24,7 @@ mod GetGasFessRecipient {
 }
 
 mod SetGasFessRecipient {
-    use super::{
-        deploy_forwarder, IOwnableDispatcherTrait, IForwarderDispatcherTrait, contract_address_const, class_hash_const, set_contract_address
-    };
+    use super::{IForwarderDispatcherTrait, IOwnableDispatcherTrait, contract_address_const, deploy_forwarder, set_contract_address};
 
     #[test]
     #[available_gas(2000000)]
@@ -60,10 +58,10 @@ mod SetGasFessRecipient {
 }
 
 mod Execute {
-    use avnu_lib::interfaces::erc20::{IERC20Dispatcher, IERC20DispatcherTrait};
+    use avnu_lib::interfaces::erc20::IERC20DispatcherTrait;
     use super::{
-        deploy_mock_token, IOwnableDispatcherTrait, IWhitelistDispatcherTrait, deploy_forwarder, IForwarderDispatcherTrait,
-        contract_address_const, set_contract_address, deploy_mock_account
+        IForwarderDispatcherTrait, IOwnableDispatcherTrait, IWhitelistDispatcherTrait, contract_address_const, deploy_forwarder,
+        deploy_mock_account, deploy_mock_token, set_contract_address,
     };
 
     #[test]
@@ -111,10 +109,9 @@ mod Execute {
 }
 
 mod ExecuteNoFee {
-    use avnu_lib::interfaces::erc20::{IERC20Dispatcher, IERC20DispatcherTrait};
     use super::{
-        deploy_mock_token, IOwnableDispatcherTrait, IWhitelistDispatcherTrait, deploy_forwarder, IForwarderDispatcherTrait,
-        contract_address_const, set_contract_address, deploy_mock_account
+        IForwarderDispatcherTrait, IOwnableDispatcherTrait, IWhitelistDispatcherTrait, contract_address_const, deploy_forwarder,
+        deploy_mock_account, set_contract_address,
     };
 
     #[test]
@@ -151,5 +148,50 @@ mod ExecuteNoFee {
 
         // When & Then
         forwarder.execute_no_fee(account_address, entrypoint, calldata);
+    }
+}
+
+mod ExecuteSponsored {
+    use super::{
+        IForwarderDispatcherTrait, IOwnableDispatcherTrait, IWhitelistDispatcherTrait, contract_address_const, deploy_forwarder,
+        deploy_mock_account, set_contract_address,
+    };
+
+    #[test]
+    #[available_gas(2000000000)]
+    fn should_execute() {
+        // Given
+        let (forwarder, ownable, whitelist) = deploy_forwarder();
+        let caller = contract_address_const::<0x999>();
+        let sponsor_metadata: Array<felt252> = array!['SPONSOR_ID'];
+        set_contract_address(ownable.get_owner());
+        whitelist.set_whitelisted_address(caller, true);
+        let account = deploy_mock_account();
+        let account_address = account.contract_address;
+        let entrypoint: felt252 = 0x361458367e696363fbcc70777d07ebbd2394e89fd0adcaf147faccd1d294d60;
+        let calldata: Array<felt252> = array![];
+        set_contract_address(caller);
+
+        // When
+        let result = forwarder.execute_sponsored(account_address, entrypoint, calldata, sponsor_metadata);
+
+        // Then
+        assert(result == true, 'invalid result');
+    }
+
+    #[test]
+    #[available_gas(2000000)]
+    #[should_panic(expected: ('Caller is not whitelisted', 'ENTRYPOINT_FAILED'))]
+    fn should_fail_when_caller_is_not_whitelisted() {
+        // Given
+        let (forwarder, _, _) = deploy_forwarder();
+        let sponsor_metadata: Array<felt252> = array!['SPONSOR_ID'];
+        let account_address = contract_address_const::<0x1>();
+        let entrypoint: felt252 = 0x0;
+        let calldata: Array<felt252> = array![0x1, 0x2];
+        set_contract_address(contract_address_const::<0x1234>());
+
+        // When & Then
+        forwarder.execute_sponsored(account_address, entrypoint, calldata, sponsor_metadata);
     }
 }
